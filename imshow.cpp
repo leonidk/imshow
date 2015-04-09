@@ -88,7 +88,7 @@ void imshow(const char * name, const Image & img){
 	switch (img.channels) {
 	case 0:
 	case 1:
-		format = GL_RED;
+		format = GL_LUMINANCE;
 		break;
 	case 2:
 		format = GL_LUMINANCE_ALPHA;
