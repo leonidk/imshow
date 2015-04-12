@@ -14,11 +14,18 @@ struct glfwState {
 	~glfwState() { glfwTerminate(); }
 };
 
+glfwState g_glfw_state;
+
 char g_key;
 bool g_key_update = false;
+
 std::mutex g_mutex;
-std::unordered_map<std::string, std::pair<GLFWwindow*,GLuint>> g_windows;
-glfwState g_glfw_state;
+struct winState {
+	GLFWwindow* win;
+	GLuint tex;
+	int width, height;
+};
+std::unordered_map<std::string, winState> g_windows;
 
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
@@ -32,7 +39,17 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
 	glfwMakeContextCurrent(window);
-	glViewport(0, 0, width, height);
+	for (const auto & win : g_windows) {
+		if (win.second.win == window) {
+			auto wScale = ((float)width) / ((float)win.second.width);
+			auto hScale = ((float)height) / ((float)win.second.height);
+			auto minScale = (wScale < hScale) ? wScale : hScale;
+			int wShift = (int)nearbyint((width - minScale*win.second.width) / 2.0f);
+			int hShift = (int)nearbyint((height - minScale*win.second.height) / 2.0f);
+
+			glViewport(wShift, hShift, (int)nearbyint(win.second.width*minScale), (int)nearbyint(win.second.height*minScale));
+		}
+	}
 }
 
 void imshow(const char * name, const Image & img){
@@ -42,19 +59,19 @@ void imshow(const char * name, const Image & img){
 	{
 		GLuint tex;
 		glGenTextures(1, &tex);
-		g_windows[s_name] = std::make_pair(glfwCreateWindow(img.width, img.height, s_name.c_str(), NULL, NULL),tex);
-		glfwSetKeyCallback(g_windows[s_name].first, key_callback);
-		glfwSetFramebufferSizeCallback(g_windows[s_name].first, framebuffer_size_callback);
+		g_windows[s_name] = { glfwCreateWindow(img.width, img.height, s_name.c_str(), NULL, NULL), tex,img.width,img.height};
+		glfwSetKeyCallback(g_windows[s_name].win, key_callback);
+		glfwSetFramebufferSizeCallback(g_windows[s_name].win, framebuffer_size_callback);
 	} 
 	auto window = g_windows[s_name];
-	glfwMakeContextCurrent(window.first);
+	glfwMakeContextCurrent(window.win);
 	glPushAttrib(GL_ALL_ATTRIB_BITS);
 	glPushMatrix();
 	glEnable(GL_TEXTURE_2D);
 	glEnable(GL_ALPHA);
 	glClearColor(0, 0, 0, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
-	glBindTexture(GL_TEXTURE_2D, window.second);
+	glBindTexture(GL_TEXTURE_2D, window.tex);
 
 	GLuint format, type;
 	switch (img.type) {
@@ -126,12 +143,12 @@ char getKey(bool wait )
 
 	std::vector<std::string> toDelete;
 	for (const auto & win : g_windows) {
-		if (glfwWindowShouldClose(win.second.first)) {
+		if (glfwWindowShouldClose(win.second.win)) {
 			toDelete.push_back(win.first);
 		}
 		else {
-			glfwMakeContextCurrent(win.second.first);
-			glfwSwapBuffers(win.second.first);
+			glfwMakeContextCurrent(win.second.win);
+			glfwSwapBuffers(win.second.win);
 			lock.unlock();
 			if (wait)
 				glfwWaitEvents();
@@ -148,8 +165,8 @@ char getKey(bool wait )
 		}
 	}
 	for (const auto & name : toDelete) {
-		glfwDestroyWindow(g_windows[name].first);
-		glDeleteTextures(1,&g_windows[name].second);
+		glfwDestroyWindow(g_windows[name].win);
+		glDeleteTextures(1,&g_windows[name].tex);
 		g_windows.erase(name);
 	}
 	return g_key;
