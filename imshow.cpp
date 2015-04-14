@@ -151,7 +151,9 @@ char getKey(bool wait )
 			glfwSwapBuffers(win.second.win);
 			lock.unlock();
 			if (wait)
-				glfwWaitEvents();
+				do {
+					glfwWaitEvents();
+				} while (!g_key_update);
 			else {
 				glfwPollEvents();
 			}
