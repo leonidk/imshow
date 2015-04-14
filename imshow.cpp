@@ -163,9 +163,9 @@ char getKey(bool wait )
 				g_key = '\0';
 			}
 
-			g_key_update = false;
 		}
 	}
+	g_key_update = false;
 	for (const auto & name : toDelete) {
 		glfwDestroyWindow(g_windows[name].win);
 		glDeleteTextures(1,&g_windows[name].tex);
