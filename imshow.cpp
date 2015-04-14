@@ -125,10 +125,10 @@ void imshow(const char * name, const Image & img){
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 
 	glBegin(GL_QUADS);
-	glTexCoord2f(0, 0);	 glVertex2f(-1, -1);
-	glTexCoord2f(1, 0);	 glVertex2f(1, -1);
-	glTexCoord2f(1, 1);	 glVertex2f(1, 1);
-	glTexCoord2f(0, 1);	 glVertex2f(-1, 1);
+	glTexCoord2f(0, 1);	 glVertex2f(-1, -1);
+	glTexCoord2f(1, 1);	 glVertex2f(1, -1);
+	glTexCoord2f(1, 0);	 glVertex2f(1, 1);
+	glTexCoord2f(0, 0);	 glVertex2f(-1, 1);
 	glEnd();
 	glDisable(GL_TEXTURE_2D);
 	glDisable(GL_ALPHA);
