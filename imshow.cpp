@@ -293,8 +293,10 @@ void imshow(const char * name, const Image & img)
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    render_callback(window.win);
-    glfwSwapBuffers(window.win);
+    // Retrieve actual size of allocated window framebuffer:
+    int width, height;
+    glfwGetFramebufferSize(window.win, &width, &height);
+    framebuffer_size_callback(window.win, width, height);
 }
 
 char getKey(bool wait)
