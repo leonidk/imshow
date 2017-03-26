@@ -39,10 +39,10 @@ endif()
 ### imshow ###
 ##############
 
-add_library(imshow imshow.h imshow.cpp)
+add_library(imshow imshow/imshow.h imshow/imshow.cpp)
 target_link_libraries(imshow PUBLIC ${IMSHOW_3RDPARTY_LIBS})
 target_include_directories(imshow PUBLIC
-  "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>/../"
+  "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>"
   "$<INSTALL_INTERFACE:include>"
   )
 
@@ -57,7 +57,7 @@ endif()
 if(IMSHOW_BUILD_EXAMPLES)
 
   # standard test:
-  add_executable(imshow-test main.cpp)
+  add_executable(imshow-test examples/main.cpp)
   target_link_libraries(imshow-test PUBLIC ${OpenCV_LIBS} imshow)
   if(IMSHOW_INSTALL)
     install(TARGETS imshow-test DESTINATION bin)
@@ -65,7 +65,7 @@ if(IMSHOW_BUILD_EXAMPLES)
 
   if(IMSHOW_WITH_OPENCV)
     # opencv interface test:
-    add_executable(imshow-test-cv cvtest.cpp)
+    add_executable(imshow-test-cv examples/cvtest.cpp)
     target_link_libraries(imshow-test-cv PUBLIC imshow ${IMSHOW_3RDPARTY_LIBS})
     if(IMSHOW_INSTALL)
       install(TARGETS imshow-test-cv DESTINATION bin)
@@ -112,12 +112,6 @@ install(
     ARCHIVE DESTINATION "lib"
     RUNTIME DESTINATION "bin"
     INCLUDES DESTINATION "${include_install_dir}"
-)
-
-install(
-    FILES
-    imshow.h
-    DESTINATION "${include_install_dir}/${PROJECT_NAME}"
 )
 
 install(
