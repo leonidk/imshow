@@ -55,7 +55,9 @@ struct Image
 
 void imshow(const char * name, const Image &image);
 char getKey(bool wait = false);
-
+void destroyWindow(const char *name);
+void destroyAllWindows();
+    
 inline ImType getImType(const cv::Mat &image)
 {
     switch (image.depth())

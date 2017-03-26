@@ -38,13 +38,12 @@
 
 #pragma comment( lib, "opengl32" )
 
-namespace glfw
-{
-char g_key;
-bool g_key_update = false;
-bool g_close = true;
+// FIX ide auto-indent
+#define BEGIN_NAMESPACE_GLFW namespace glfw {
+#define END_NAMESPACE_GLFW }
 
-std::mutex g_mutex;
+BEGIN_NAMESPACE_GLFW
+
 struct winState
 {
     GLFWwindow* win;
@@ -52,11 +51,89 @@ struct winState
     Image image;
     int x, y; // screen position
 };
-std::unordered_map<std::string, winState> g_windows;
+
+typedef std::unordered_map<std::string, winState>::const_iterator winStateIter;
+
+
+struct glfwState
+{
+    glfwState() : isInitialized(false) {}
+    ~glfwState()
+    {
+        if(isInitialized)
+        {
+            isInitialized = false;
+            destroyAllWindows();
+            glfwTerminate();
+        }
+    }
+    void init()
+    {
+        if(!isInitialized)
+        {
+            isInitialized = true;
+            glfwInit();
+        }
+    }
+    void quit()
+    {
+        if(isInitialized)
+        {
+            destroyAllWindows();  
+            isInitialized = false;
+            glfwTerminate();
+        }
+    }
+    
+    winStateIter erase(winStateIter iter)
+    {
+        // Always invalidate window with existing name
+        glfwMakeContextCurrent(iter->second.win);
+        glfwDestroyWindow(iter->second.win);
+        glDeleteTextures(1,&iter->second.tex);
+        iter = windows.erase(iter);
+        
+        if(windows.empty())
+        {
+            quit();
+        }
+        return iter;
+    }
+    
+    void destroyAllWindows()
+    {
+        if(isInitialized)
+        {
+            for (winStateIter i = windows.begin(); i != windows.end(); i = erase(i));
+        }
+    }
+    
+    std::unordered_map<std::string, winState> windows;
+    std::mutex mutex;
+    bool isInitialized = false;
+    char key;
+    bool key_update = false;
+    bool close = true;
+    
+} g_state;
+
+static winStateIter eraseWindow(winStateIter iter)
+{
+    return g_state.erase(iter);
+}
+
+static void eraseWindow(const char *name)
+{
+    auto iter = g_state.windows.find(name);
+    if(iter != g_state.windows.end())
+    {
+        eraseWindow(iter);
+    }
+}
 
 static winState * getWindowState(GLFWwindow *window)
 {
-    for (auto & win : g_windows)
+    for (auto & win : g_state.windows)
     {
         if (win.second.win == window)
         {
@@ -125,8 +202,8 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 {
     if (action == GLFW_PRESS)
     {
-        g_key = tolower(key);
-        g_key_update = true;
+        g_state.key = tolower(key);
+        g_state.key_update = true;
     }
 }
 static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
@@ -154,37 +231,25 @@ static void refresh_callback(GLFWwindow *window)
 static void window_close_callback(GLFWwindow *window)
 {
     // For a key update for the main loop
-    g_close = true;
+    g_state.close = true;
     glfwMakeContextCurrent(window);
     glfwSetWindowShouldClose(window, GLFW_TRUE);
     glfwPostEmptyEvent();
 }
 
-static void eraseWindow(std::unordered_map<std::string, winState>::const_iterator iter)
-{
-    // Always invalidate window with existing name
-    glfwMakeContextCurrent(iter->second.win);
-    glfwDestroyWindow(iter->second.win);
-    glDeleteTextures(1,&iter->second.tex);
-    g_windows.erase(iter);
-}
-
-static void eraseWindow(const char *name)
-{
-    auto iter = g_windows.find(name);
-    if(iter != g_windows.end())
-    {
-        eraseWindow(iter);
-    }
-}
+/*
+ * Above = private API
+ * --------------------
+ * Below = public API
+ */
 
 void imshow(const char * name, const Image & img)
 {
-    std::unique_lock<std::mutex> lock(g_mutex);
+    std::unique_lock<std::mutex> lock(g_state.mutex);
 
-    if(g_windows.empty())
+    if(g_state.windows.empty())
     {
-        glfwInit();
+        g_state.init();
     }
 
     std::string s_name(name);
@@ -192,18 +257,20 @@ void imshow(const char * name, const Image & img)
     bool hasWindow = false;
     int x, y;
 
-    auto iter = g_windows.find(s_name);
-    if(iter != g_windows.end())
+    auto iter = g_state.windows.find(s_name);
+    if(iter != g_state.windows.end())
     {
         hasWindow = true;
+        
+        // Store last known position for new window:
         x = iter->second.x;
         y = iter->second.y;
 
         eraseWindow(iter);
-        iter = g_windows.end();
+        iter = g_state.windows.end();
     }
 
-    if (iter == g_windows.end())
+    if (iter == g_state.windows.end())
     {
         // OS X:
         // * must create window prior to glGenTextures on OS X
@@ -231,57 +298,33 @@ void imshow(const char * name, const Image & img)
         {
             glfwGetWindowPos(window, &x, &y);
         }
-        g_windows[s_name] = {window, tex, img, x, y};
+        g_state.windows[s_name] = {window, tex, img, x, y};
     }
 
     GLuint format, type;
     switch (img.type)
     {
-        case IM_8U:
-            type = GL_UNSIGNED_BYTE;
-            break;
-        case IM_8I:
-            type = GL_BYTE;
-            break;
-        case IM_16U:
-            type = GL_UNSIGNED_SHORT;
-            break;
-        case IM_16I:
-            type = GL_SHORT;
-            break;
-        case IM_32U:
-            type = GL_UNSIGNED_INT;
-            break;
-        case IM_32I:
-            type = GL_INT;
-            break;
-        case IM_32F:
-            type = GL_FLOAT;
-            break;
-        case IM_64F:
-            type = GL_DOUBLE;
-            break;
-        default:
-            return;
+        case IM_8U: type = GL_UNSIGNED_BYTE; break;
+        case IM_8I: type = GL_BYTE; break;
+        case IM_16U: type = GL_UNSIGNED_SHORT; break;
+        case IM_16I: type = GL_SHORT; break;
+        case IM_32U: type = GL_UNSIGNED_INT; break;
+        case IM_32I: type = GL_INT; break;
+        case IM_32F: type = GL_FLOAT; break;
+        case IM_64F: type = GL_DOUBLE; break;
+        default: return;
     }
     switch (img.channels)
     {
         case 0:
-        case 1:
-            format = GL_LUMINANCE;
-            break;
-        case 2:
-            format = GL_LUMINANCE_ALPHA;
-            break;
-        case 3:
-            format = GL_BGR;
-            break;
-        case 4:
-            format = GL_BGRA;
-            break;
+        case 1: format = GL_LUMINANCE; break;
+        case 2: format = GL_LUMINANCE_ALPHA; break;
+        case 3: format = GL_BGR; break;
+        case 4: format = GL_BGRA; break;
+        default: return; 
     }
 
-    auto window = g_windows[s_name];
+    auto window = g_state.windows[s_name];
     glfwMakeContextCurrent(window.win);
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -301,15 +344,15 @@ void imshow(const char * name, const Image & img)
 
 char getKey(bool wait)
 {
-    std::unique_lock<std::mutex> lock(g_mutex);
-    g_close = false;
+    std::unique_lock<std::mutex> lock(g_state.mutex);
+    g_state.close = false;
 
     std::vector<std::string> toDelete;
-    for (const auto & win : g_windows)
+    for (const auto & win : g_state.windows)
     {
         if (glfwWindowShouldClose(win.second.win))
         {
-            g_close = true;
+            g_state.close = true;
             toDelete.push_back(win.first);
         }
         else
@@ -317,18 +360,18 @@ char getKey(bool wait)
             glfwMakeContextCurrent(win.second.win);
             glfwSwapBuffers(win.second.win);
             lock.unlock();
-            if (wait && !g_close)
+            if (wait && !g_state.close)
             {
                 do
                 {
                     glfwWaitEvents();
                     if(glfwWindowShouldClose(win.second.win))
                     {
-                        g_close = true;
+                        g_state.close = true;
                         toDelete.push_back(win.first);
                     }
                 }
-                while (!g_key_update && !g_close);
+                while (!g_state.key_update && !g_state.close);
             }
             else
             {
@@ -336,18 +379,31 @@ char getKey(bool wait)
             }
             lock.lock();
 
-            if (!g_key_update)
+            if (!g_state.key_update)
             {
-                g_key = '\0';
+                g_state.key = '\0';
             }
         }
     }
 
-    g_key_update = false;
+    g_state.key_update = false;
     for (const auto & name : toDelete)
     {
         eraseWindow(name.c_str());
     }
-    return g_key;
+    return g_state.key;
 }
+    
+void destroyWindow(const char *name)
+{
+    std::unique_lock<std::mutex> lock(g_state.mutex);
+    eraseWindow(name);
 }
+
+void destroyAllWindows()
+{
+    std::unique_lock<std::mutex> lock(g_state.mutex);
+    g_state.destroyAllWindows();
+}
+
+END_NAMESPACE_GLFW
