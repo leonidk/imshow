@@ -42,7 +42,7 @@ endif()
 add_library(imshow imshow/imshow.h imshow/imshow.cpp)
 target_link_libraries(imshow PUBLIC ${IMSHOW_3RDPARTY_LIBS})
 target_include_directories(imshow PUBLIC
-  "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>"
+  "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}>"
   "$<INSTALL_INTERFACE:include>"
   )
 
