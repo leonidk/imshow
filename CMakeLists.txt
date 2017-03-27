@@ -71,7 +71,7 @@ if(IMSHOW_BUILD_EXAMPLES)
       install(TARGETS imshow-test-cv DESTINATION bin)
     endif()
   endif()
-  
+
 endif()
 
 ###############
